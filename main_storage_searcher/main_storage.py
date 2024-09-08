@@ -6,7 +6,7 @@ from main_storage_searcher.utils.display_utils import rtr, rtr_minecraft
 from main_storage_searcher.utils.pos_utils import DynamicPos, opposite_facing, rotate_facing
 from mcdreforged.api.all import PluginServerInterface, CommandSource, CommandContext, new_thread, SimpleCommandBuilder, Text, Info
 from minecraft_data_api import get_player_coordinate
-# 帮助你在全物品中寻找指定物品
+
 
 class MainStorageData(TypedDict):
     name: str
@@ -123,10 +123,12 @@ class MainStorageCreator:
         self.server.execute("gamerule sendCommandFeedback false")
         main_storage_data: MainStorageData = {"name": name}
         player_x, player_y, player_z = pos
+
+        # query hoppers from y+16 to y-5, from x-16 to x+16, from y-16 to y+16
         hoppers = []
         match = lambda block_data: block_data["id"] == "minecraft:hopper" and len(block_data["Items"]) == 5 and block_data["Items"][0]["Count"] < 64
         is_covered = lambda pos: (pos[0], pos[1]+1, pos[2]) in hoppers or pos in hoppers
-        axis = None
+        axis = None # the axis of slice, not main axis
         self.server.broadcast(rtr("command.add.start"))
         for y in range(player_y+15, player_y-6, -1):
             if axis is None or axis == "x":
@@ -151,6 +153,8 @@ class MainStorageCreator:
         if not axis:
             return
         main_storage_data["axis"] = axis
+
+        # query start & end of the main axis
         hoppers = [i for i in hoppers if (axis == "z" and i[0] == player_x) or (axis == "x" and i[2] == player_z)]
         offset_axis = "x" if axis == "z" else "z"
         start = end = None
@@ -188,6 +192,8 @@ class MainStorageCreator:
         highlight_block_clear(self.server, "new_hoppers")
         highlight_block_multi(self.server, hopper_slices[0]+hopper_slices[-1], tag="show_hopper", block="hopper")
         self.server.broadcast(rtr("command.add.hoppers_found"))
+
+        # query items
         items = []
         for hopper_slice in hopper_slices:
             highlight_block_multi(self.server, hopper_slice, tag="query_hopper", block="hopper")
@@ -197,6 +203,7 @@ class MainStorageCreator:
         main_storage_data["items"] = items
         self.server.broadcast(rtr("command.add.items_found"))
         
+        # query chests
         chests = []
         for pos in hoppers:
             chests.append(self.complete_chest(single_chest, axis) if (single_chest := self.search_target_chest(DynamicPos(pos), axis), axis) is not None else [])
@@ -207,6 +214,7 @@ class MainStorageCreator:
         highlight_block_multi_steps(self.server, chest_slices, block="red_stained_glass", end_func=(lambda server, tag: (highlight_block_clear(server, tag), self.server.execute("gamerule sendCommandFeedBack true")), (self.server, "show_chests")))
         self.server.broadcast(rtr("command.add.chests_found"))
 
+        # save
         self.save_ms_data(main_storage_data, name)
         self.server.broadcast(rtr("command.add.main_storage_pattern_created", name=name))
     
