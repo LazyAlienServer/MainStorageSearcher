@@ -1,0 +1,21 @@
+{
+	"id": "main_storage_searcher",
+	"version": "0.1.0",
+	"name": "MS-Searcher",
+	"description": {
+		"en_us": "Help you search specific item in main storage",
+		"zh_cn": "帮助你在全物品中寻找指定物品"
+	},
+	"author": [
+		"tanh_Heng"
+	],
+	"link": "https://github.com/LazyAlienServer/MainStorageSearcher",
+	"dependencies": {
+		"mcdreforged": ">=2.6.0",
+		"minecraft_data_api": "*"
+	},
+	"resources": [
+		"LICENSE",
+		"lang"
+    ]
+}
