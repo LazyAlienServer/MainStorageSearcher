@@ -33,7 +33,7 @@ class BlockDataGetter(AbstractDataGetter):
         self.server.execute(f"data get block {int(x)} {int(y)} {int(z)}"+path)
         return self.queue.get(timeout=5)
 
-    def get_multi_block_data(self, multi_pos: List[Tuple[int, int, int]]) -> List[BlockData]:
+    def get_multi_block_data(self, multi_pos: List[Tuple[int, int, int]], path = None) -> List[BlockData]:
         multi_block_data = []
         for pos in multi_pos:
             x, y, z = pos
@@ -63,7 +63,7 @@ class BlockTester(AbstractDataGetter):
     def test_block(self, x, y, z, block):
         self.task_count += 1
         self.server.execute(f"execute if block {int(x)} {int(y)} {int(z)} {block}")
-        self.server.logger.info(f"execute if block {int(x)} {int(y)} {int(z)} {block}")
+        # self.server.logger.info(f"execute if block {int(x)} {int(y)} {int(z)} {block}")
         return self.queue.get(timeout=5)
     
     def on_info(self, server: ServerInterface, info: Info):
@@ -72,5 +72,5 @@ class BlockTester(AbstractDataGetter):
         if (result := self.pattern.match(info.content)) is not None:
             self.queue.put(result.group("status") == "passed")
             self.task_count -= 1
-            self.server.logger.info(result.group("status") == "passed")
+            # self.server.logger.info(result.group("status") == "passed")
 
