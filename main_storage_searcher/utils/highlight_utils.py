@@ -50,7 +50,7 @@ def highlight_block_by_entity(server: ServerInterface, x, y, z, new=True, tag="h
     elif new:
         server.execute(f"kill @e[tag={tag}]")
     nbt = '''{Tags:["%s"],Glowing:1b,NoAI:1b,Invulnerable:1b,PersistenceRequired:1b,CanPickUpLoot:0b,Silent:1b,NoGravity:1b,DeathLootTable:"entities/empty",ActiveEffects:[{Id:14,Amplifier:0,Duration:199980}],DeathTime:19b}'''%tag
-    server.execute(f"summon slime {x} {y} {z} {tag}")
+    server.execute(f"summon slime {x} {y} {z} {nbt}")
     if duration:
         time.sleep(duration)
         server.execute(f"kill @e[tag={tag}]")

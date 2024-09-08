@@ -1,3 +1,25 @@
+main_storage_searcher:
+  nodata: §c没有已加载的全物品数据
+  command:
+    add:
+      has_task: §c已有正在进行中的构建任务
+      start: 开始构建...
+      hoppers_found: §a漏斗检索完成
+      chests_found: §a箱子寻路完成
+      items_found: §a物品检索完成
+      main_storage_pattern_created: 全物品§b{name}§f样式§a构建完成
+      error: §c未知错误：{e}
+    load:
+      exist: §c{name}已加载 §7/ §f重载 §7!!ms reload
+      success: §b{name}§a加载成功
+    reload:
+      success: §b{name}§a重载成功
+    unload:
+      success: §b{name}§a卸载成功
+    search:
+      best: §a最佳匹配§7：§b{item} §7(已高亮)
+      nodata: §c暂无相关数据
+
 minecraft:
   dripstone_block: 滴水石块
   ender_chest: 末影箱

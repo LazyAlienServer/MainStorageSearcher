@@ -5,6 +5,9 @@ from main_storage_searcher.constants import PLUGIN_ID, REPLY_TITLE, TITLE
 def rtr(key, title=True, *args, **kwargs):
     return RTextList(REPLY_TITLE+" ", ServerInterface.si().rtr(PLUGIN_ID+"."+key, *args, **kwargs)) if title else ServerInterface.si().rtr(PLUGIN_ID+"."+key, *args, **kwargs)
 
+def rtr_minecraft(key):
+    return ServerInterface.si().rtr("minecraft."+key).to_plain_text() if key else None
+
 
 def help_msg(server_name, prefix):
     server = ServerInterface.si()

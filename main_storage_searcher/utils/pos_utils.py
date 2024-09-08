@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Iterable
 
 class DynamicPos(tuple):
 
@@ -28,8 +28,32 @@ class DynamicPos(tuple):
                 return DynamicPos((self[0], self[1]+distance, self[2]))
         raise TypeError(f"`facing` should be 'north', 'south', 'east', 'west', 'up' or 'down', but found '{facing}'")
     
-    def __add__(self, pos: Tuple[Union[int, float], Union[int, float], Union[int, float]]):
-        return DynamicPos((self[0]+pos[0], self[1]+pos[1], self[2]+pos[2]))
+    def set_axis(self, value, axis):
+        match axis:
+            case "x":
+                return DynamicPos((value, self[1], self[2]))
+            case "y":
+                return DynamicPos((self[0], value, self[2]))
+            case "z":
+                return DynamicPos((self[0], self[1], value))
+    
+    def __mul__(self, value):
+        return DynamicPos((self[0]*value, self[1]*value, self[2]*value))
+    
+    def __truediv__(self, value):
+        return DynamicPos((self[0]/value, self[1]/value, self[2]/value))
+    
+    def __add__(self, pos):
+        if isinstance(pos, DynamicPos) or (isinstance(pos, Iterable) and len(pos) == 3):
+            return DynamicPos((self[0]+pos[0], self[1]+pos[1], self[2]+pos[2]))
+        elif isinstance(pos, int) or isinstance(pos, float):
+            return DynamicPos((self[0]+pos, self[1]+pos, self[2]+pos))
+    
+    def __radd__(self, pos):
+        return self.__add__(pos)
+    
+    def __sub__(self, pos):
+        return DynamicPos((self[0]-pos[0], self[1]-pos[1], self[2]-pos[2]))
 
 def opposite_facing(facing: str):
     match facing:
