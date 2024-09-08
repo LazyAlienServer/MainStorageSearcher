@@ -1,6 +1,6 @@
 {
 	"id": "main_storage_searcher",
-	"version": "0.1.0",
+	"version": "0.1.0-beta",
 	"name": "MS-Searcher",
 	"description": {
 		"en_us": "Help you search specific item in main storage",
