@@ -68,7 +68,10 @@ class MainStorageManager:
             source.reply(rtr("command.load.exist", name=name))
             return
         self.current_ms = self.ms_creator.load_ms_data(name)
-        source.reply(rtr("command.load.success", name=name))
+        if self.current_ms:
+            source.reply(rtr("command.load.success", name=name))
+            return
+        source.reply(rtr("command.load.notfound", name=name))
     
     def reload(self, source: CommandSource, context: CommandContext):
         if not source.has_permission(self.config.permission.reload):
@@ -301,5 +304,7 @@ class MainStorageCreator:
             data : MainStorageData = self.server.load_config_simple(f"msdata-{name}.json")
             data["items"] = [[rtr_minecraft(item) for item in items] for items in data["items"]]
             return data
-        except:
+        except FileNotFoundError:
             return None
+        except Exception as e:
+            raise e

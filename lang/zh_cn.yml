@@ -12,6 +12,7 @@ main_storage_searcher:
     load:
       exist: §c{name}已加载 §7/ §f重载 §7!!ms reload
       success: §b{name}§a加载成功
+      notfound: 无效的全物品数据§c{name}§c
     reload:
       success: §b{name}§a重载成功
     unload:
