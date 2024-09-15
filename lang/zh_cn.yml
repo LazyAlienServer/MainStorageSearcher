@@ -1,6 +1,7 @@
 main_storage_searcher:
   nodata: §c没有已加载的全物品数据
   command:
+
     add:
       has_task: §c已有正在进行中的构建任务
       start: 开始构建...
@@ -9,23 +10,52 @@ main_storage_searcher:
       items_found: §a物品检索完成
       main_storage_pattern_created: 全物品§b{name}§f样式§a构建完成
       error: §c未知错误：{e}
+
     load:
       exist: §c{name}已加载 §7/ §f重载 §7!!ms reload
       success: §b{name}§a加载成功
       notfound: §c无效的全物品数据：§4{name}
+
     reload:
       success: §b{name}§a重载成功
+
     unload:
       success: §b{name}§a卸载成功
+
     search:
       best: §a最佳匹配§7：§b{item} §7(已高亮)
+      others_1: 其他匹配§7：
+      others_2: §7(点击对应物品名以高亮)
       nodata: §c暂无相关数据
+
+    highlight: 
+      success: §b{item}§f已高亮
+
+    setdefault:
+      success: 已将§b{name}§f设置为默认加载
+      exist: §c{name}§4已经是默认加载的了
+      unset: §a已取消默认加载
+      exist_unset: §c未设置默认加载
+
     help:
+      basic: 帮助你在全物品中寻找指定物品
+      info: §7----- §eMainStorageSearcher §7-----§f
       create: 识别全物品样式，站在全物品普通单片正中央的通道上使用此指令
       search: 在全物品样式中搜索指定的物品并高亮
+      list: 列出存储的全物品样式
       load: 加载全物品样式
       reload: 重载全物品样式
       unload: 卸载已加载的全物品样式
+      setdefault: 将当前加载的全物品样式设为默认加载
+    
+    list:
+      info: §e存储的全物品样式数据：
+      current: "§3# §b{name} §7(当前加载)"
+      default: "§7- §f{name} §7(默认加载)"
+      current_and_default: "§3# §b{name} §7(当前加载，默认加载)"
+      plain: "§7- {name}"
+      empty: §7空
+
     permission_denied: §c权限不足
 
 minecraft:

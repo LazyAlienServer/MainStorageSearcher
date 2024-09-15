@@ -44,14 +44,16 @@ def highlight_block_timer(server: ServerInterface, x, y, z, block="gray_stained_
     server.execute(f"kill @e[tag=temp{id}]")
 
 @new_thread("highlight-block-by-entity")
-def highlight_block_by_entity(server: ServerInterface, x, y, z, new=True, tag="highlight_entity", duration: int = 0):
+def highlight_block_by_entity(server: ServerInterface, x, y, z, new="highlight_entity", tag=[], duration: int = 0):
     if duration > 0:
-        tag = f"highlight_entity{time.time()}"
-    elif new:
-        server.execute(f"kill @e[tag={tag}]")
-    nbt = '''{Tags:["%s"],Glowing:1b,NoAI:1b,Invulnerable:1b,PersistenceRequired:1b,CanPickUpLoot:0b,Silent:1b,NoGravity:1b,DeathLootTable:"entities/empty",ActiveEffects:[{Id:14,Amplifier:0,Duration:199980}],DeathTime:19b}'''%tag
+        tag.append(f"highlight_entity{time.time()}")
+    if new:
+        tag.append(new)
+        server.execute(f"kill @e[tag={new}]")
+    tag = ",".join(tag)
+    nbt = '''{Tags:[%s],Glowing:1b,NoAI:1b,Invulnerable:1b,PersistenceRequired:1b,CanPickUpLoot:0b,Silent:1b,NoGravity:1b,DeathLootTable:"entities/empty",ActiveEffects:[{Id:14,Amplifier:0,Duration:199980}],DeathTime:19b}'''%tag
     server.execute(f"summon slime {x} {y} {z} {nbt}")
     if duration:
         time.sleep(duration)
-        server.execute(f"kill @e[tag={tag}]")
+        server.execute(f"kill @e[tag={new}]")
     

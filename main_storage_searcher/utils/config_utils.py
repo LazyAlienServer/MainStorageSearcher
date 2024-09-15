@@ -8,6 +8,9 @@ class PermissionConfig(Serializable):
     reload: int = 2
     unload: int = 2
     search: int = 0
+    highlight: int = 0
+    setdefault: int = 3
+    list: int = 0
 
 class MSConfig(Serializable):
     default: Union[None, str] = None
