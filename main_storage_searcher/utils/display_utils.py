@@ -8,5 +8,5 @@ def rtr(key, title=True, *args, **kwargs):
 def rtr_minecraft(key):
     return ServerInterface.si().rtr("minecraft."+key).to_plain_text() if key else None
 
-def help_msg(command):
-    return RTextList(RText(f"§7!!ms {command} ").c(RAction.run_command, f"!!ms {command}"), ServerInterface.si().rtr(f"{PLUGIN_ID}.command.help.{command}"))
+def help_msg(command, suffix=""):
+    return RTextList(RText(f"§7!!ms {command} {suffix}").c(RAction.run_command, f"!!ms {command}"), ServerInterface.si().rtr(f"{PLUGIN_ID}.command.help.{command}"))
