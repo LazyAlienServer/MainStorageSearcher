@@ -31,7 +31,7 @@ class MainStorageManager:
         builder.command("!!ms create <name>", self.create)
         builder.command("!!ms load <name>", self.load)
         builder.command("!!ms unload", self.unlaod)
-        builder.command("!!ms reload <name>", self.reload)
+        builder.command("!!ms reload", self.reload)
         builder.command("!!ms search <name>", self.search)
         builder.register(server)
     
@@ -80,8 +80,9 @@ class MainStorageManager:
         if not self.current_ms:
             source.reply(rtr("nodata"))
             return
-        self.current_ms = self.ms_creator.load_ms_data(self.current_ms["name"])
-        source.reply(rtr("command.reload.success", name=context["name"]))
+        name = self.current_ms["name"]
+        self.current_ms = self.ms_creator.load_ms_data(name)
+        source.reply(rtr("command.reload.success", name=name))
     
     def unlaod(self, source: CommandSource, context: CommandContext):
         if not source.has_permission(self.config.permission.unload):
