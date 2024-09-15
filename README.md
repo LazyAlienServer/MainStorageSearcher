@@ -14,6 +14,16 @@
 
 `!!ms search <name>` 在加载的全物品中搜索指定物品并高亮
 
+## 依赖
+
+**Python**
+
+- `python >= 3.8`
+
+**插件**
+
+- `minecraft_data_api`
+
 ## 识别全物品
 
 完整原理说明参加[原理](/docs/theory.md)
