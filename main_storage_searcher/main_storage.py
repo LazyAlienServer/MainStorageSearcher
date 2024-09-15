@@ -1,9 +1,10 @@
 from typing import Tuple, List, TypedDict
-import time, difflib, json
+import time, difflib
 from main_storage_searcher.utils.block_utils import BlockDataGetter, BlockTester
 from main_storage_searcher.utils.highlight_utils import *
 from main_storage_searcher.utils.display_utils import rtr, rtr_minecraft
 from main_storage_searcher.utils.pos_utils import DynamicPos, opposite_facing, rotate_facing
+from main_storage_searcher.utils.config_utils import Config
 from mcdreforged.api.all import PluginServerInterface, CommandSource, CommandContext, new_thread, SimpleCommandBuilder, Text, Info
 from minecraft_data_api import get_player_coordinate
 
@@ -18,11 +19,12 @@ class MainStorageData(TypedDict):
 
 class MainStorageManager:
 
-    def __init__(self, server: PluginServerInterface) -> None:
+    def __init__(self, server: PluginServerInterface, config: Config) -> None:
         self.has_task = False
         self.ms_creator = MainStorageCreator(server)
         self.current_ms : MainStorageData = None
         self.server = server
+        self.config = config
 
         builder = SimpleCommandBuilder()
         builder.arg("name", Text)
@@ -41,6 +43,9 @@ class MainStorageManager:
     def create(self, source: CommandSource, context: CommandContext):
         if not source.is_player:
             return
+        if not source.has_permission(self.config.permission.create):
+            source.reply(rtr("command.permission_denied"))
+            return
         if self.has_task:
             source.reply(rtr("command.add.has_task"))
             return
@@ -55,6 +60,9 @@ class MainStorageManager:
             raise e
     
     def load(self, source: CommandSource, context: CommandContext):
+        if not source.has_permission(self.config.permission.load):
+            source.reply(rtr("command.permission_denied"))
+            return
         name = context["name"]
         if self.current_ms and self.current_ms["name"] == name:
             source.reply(rtr("command.load.exist", name=name))
@@ -63,6 +71,9 @@ class MainStorageManager:
         source.reply(rtr("command.load.success", name=name))
     
     def reload(self, source: CommandSource, context: CommandContext):
+        if not source.has_permission(self.config.permission.reload):
+            source.reply(rtr("command.permission_denied"))
+            return
         if not self.current_ms:
             source.reply(rtr("nodata"))
             return
@@ -70,6 +81,9 @@ class MainStorageManager:
         source.reply(rtr("command.reload.success", name=context["name"]))
     
     def unlaod(self, source: CommandSource, context: CommandContext):
+        if not source.has_permission(self.config.permission.unload):
+            source.reply(rtr("command.permission_denied"))
+            return
         if not self.current_ms:
             source.reply(rtr("nodata"))
             return
@@ -78,6 +92,9 @@ class MainStorageManager:
     
     @new_thread("ms-searcher")
     def search(self, source: CommandSource, context: CommandContext):
+        if not source.has_permission(self.config.permission.search):
+            source.reply(rtr("command.permission_denied"))
+            return
         current_ms = self.current_ms
         if not current_ms:
             source.reply(rtr("nodata"))

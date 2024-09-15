@@ -19,6 +19,13 @@ main_storage_searcher:
     search:
       best: §a最佳匹配§7：§b{item} §7(已高亮)
       nodata: §c暂无相关数据
+    help:
+      create: 识别全物品样式，站在全物品普通单片正中央的通道上使用此指令
+      search: 在全物品样式中搜索指定的物品并高亮
+      load: 加载全物品样式
+      reload: 重载全物品样式
+      unload: 卸载已加载的全物品样式
+    permission_denied: §c权限不足
 
 minecraft:
   dripstone_block: 滴水石块
