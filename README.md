@@ -1,5 +1,7 @@
 # MainStorageSearcher
 
+中文 | [English](./README_en.md)
+
 一个MCDR插件，帮助你在全物品中寻找指定物品~
 
 ## 命令
