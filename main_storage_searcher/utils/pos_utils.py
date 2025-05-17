@@ -15,9 +15,9 @@ class DynamicPos(tuple):
     def offset_facing(self, distance: int, facing: str):
         match facing:
             case "west":
-                return DynamicPos((self[0], self[1]-distance, self[2]))
+                return DynamicPos((self[0]-distance, self[1], self[2]))
             case "east":
-                return DynamicPos((self[0], self[1]+distance, self[2]))
+                return DynamicPos((self[0]+distance, self[1], self[2]))
             case "north":
                 return DynamicPos((self[0], self[1], self[2]-distance))
             case "south":
@@ -48,6 +48,9 @@ class DynamicPos(tuple):
             return DynamicPos((self[0]+pos[0], self[1]+pos[1], self[2]+pos[2]))
         elif isinstance(pos, int) or isinstance(pos, float):
             return DynamicPos((self[0]+pos, self[1]+pos, self[2]+pos))
+    
+    def __repr__(self):
+        return "(%s, %s, %s,)"%self
     
     def __radd__(self, pos):
         return self.__add__(pos)
