@@ -3,6 +3,7 @@ from main_storage_searcher.utils.highlight_utils import *
 from main_storage_searcher.utils.display_utils import rtr, rtr_minecraft, help_msg
 from main_storage_searcher.utils.pos_utils import DynamicPos
 from main_storage_searcher.utils.config_utils import Config
+from main_storage_searcher.utils.hopper_matcher import HopperMatcher
 from main_storage_searcher.utils.main_storage_utils import MainStorageCreator, MainStorageData
 from mcdreforged.api.all import PluginServerInterface, CommandSource, CommandContext, new_thread, SimpleCommandBuilder, Text, Number, Info, RTextList, RText, RAction
 from minecraft_data_api import get_player_coordinate
@@ -17,6 +18,7 @@ class MainStorageManager:
         self.server = server
         self.config = config
         self.highlight_flag = None
+        self.hopper_matcher = HopperMatcher()
 
         builder = SimpleCommandBuilder()
         builder.arg("name", Text)
@@ -108,19 +110,29 @@ class MainStorageManager:
             source.reply(rtr("nodata"))
             return
         name = context["name"]
+        normalized_name = self.hopper_matcher.normalize_item_name(name)
         target = []
         target_index = 0
-        best = {"similarity":-1, "pos":(0, 0), "item":"", "target_index":-1}
+        best = {"similarity": -1, "pos": (0, 0), "item": "", "target_index": -1}
         for slice_index, items in enumerate(current_ms["items"]):
             for chest_index, item in enumerate(items):
-                if item is not None and ((similarity := difflib.SequenceMatcher(None, name, item).ratio()) >= 0.5 or name in item):
-                    if similarity > best["similarity"]:
-                        best["similarity"] = similarity
-                        best["pos"] = (slice_index, chest_index)
-                        best["item"] = item
-                        best["target_index"] = target_index
-                    target.append((item, (slice_index, chest_index)))
-                    target_index += 1
+                if item is None:
+                    continue
+                normalized_item = self.hopper_matcher.normalize_item_name(item)
+                similarity = difflib.SequenceMatcher(
+                    None,
+                    normalized_name,
+                    normalized_item,
+                ).ratio()
+                if similarity < 0.5 and normalized_name not in normalized_item:
+                    continue
+                if similarity > best["similarity"]:
+                    best["similarity"] = similarity
+                    best["pos"] = (slice_index, chest_index)
+                    best["item"] = item
+                    best["target_index"] = target_index
+                target.append((item, (slice_index, chest_index)))
+                target_index += 1
         if best["similarity"] < 0:
             source.reply(rtr("command.search.nodata"))
             return

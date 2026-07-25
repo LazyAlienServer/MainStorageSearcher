@@ -1,8 +1,27 @@
-import queue, re
-from mcdreforged.api.all import ServerInterface, Info
-from minecraft_data_api.json_parser import MinecraftJsonParser
-from typing import Tuple, List, TypedDict
+import queue
+import re
 from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Tuple, TypedDict
+
+from mcdreforged.api.all import Info, ServerInterface
+from minecraft_data_api.json_parser import MinecraftJsonParser
+
+
+def normalize_nbt_key(key: str) -> str:
+    """Normalize NBT keys to lowercase names without underscores."""
+    return key.lower().replace("_", "")
+
+
+def normalize_nbt_data(value: Any) -> Any:
+    """Recursively normalize dictionary keys in parsed Minecraft data."""
+    if isinstance(value, dict):
+        return {
+            normalize_nbt_key(key): normalize_nbt_data(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [normalize_nbt_data(item) for item in value]
+    return value
 
 
 class AbstractDataGetter(ABC):
@@ -48,7 +67,15 @@ class BlockDataGetter(AbstractDataGetter):
         if not info.is_from_server or self.task_count == 0:
             return
         if (result := self.pattern.match(info.content)) is not None:
-            self.queue.put({"pos":(float(result.group("x")), float(result.group("y")), float(result.group("z"))),"data":MinecraftJsonParser().convert_minecraft_json(result.group("data"))})
+            parsed_data = MinecraftJsonParser().convert_minecraft_json(result.group("data"))
+            self.queue.put({
+                "pos": (
+                    float(result.group("x")),
+                    float(result.group("y")),
+                    float(result.group("z")),
+                ),
+                "data": normalize_nbt_data(parsed_data),
+            })
             self.task_count -= 1
         elif info.content in ["That position is not loaded", "The target block is not a block entity"]:
             self.queue.put(None)

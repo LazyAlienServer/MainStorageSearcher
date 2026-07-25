@@ -1,206 +1,247 @@
-from main_storage_searcher.utils.block_utils import BlockDataGetter, BlockTester
-from main_storage_searcher.utils.pos_utils import DynamicPos, opposite_facing, rotate_facing
-from main_storage_searcher.utils.display_utils import rtr, rtr_minecraft
-from main_storage_searcher.utils.highlight_utils import *
-from typing import Tuple, List, TypedDict
+from typing import Any, Dict, List, Optional, Tuple, TypedDict
+
 from mcdreforged.api.all import PluginServerInterface
 
-class MainStorageCreatingError(Exception):
+from main_storage_searcher.utils.block_utils import BlockDataGetter, BlockTester
+from main_storage_searcher.utils.chest_finder import ChestFinder
+from main_storage_searcher.utils.display_utils import rtr, rtr_minecraft
+from main_storage_searcher.utils.highlight_utils import (
+    highlight_block_clear,
+    highlight_block_multi,
+    highlight_block_multi_steps,
+)
+from main_storage_searcher.utils.hopper_matcher import HopperMatcher
+from main_storage_searcher.utils.pos_utils import DynamicPos
+from main_storage_searcher.utils.range_finder import RangeFinder
+from main_storage_searcher.utils.storage_scanner import (
+    MainStorageCreatingError,
+    MainStorageScanner,
+)
 
-    def __init__(self, *args):
-        super().__init__(*args)
 
 class MainStorageData(TypedDict):
     name: str
     axis: str
     range: Tuple[int, int]
     hoppers: List[Tuple[int, int, int]]
-    chests: List[Tuple[Tuple[int, int, int]]]
-    items: List[List[str]]
+    chests: List[List[Tuple[int, int, int]]]
+    items: List[List[Optional[str]]]
+
 
 class MainStorageCreator:
+    """Create, persist, and load a main-storage pattern."""
 
     def __init__(self, server: PluginServerInterface) -> None:
         self.api = BlockDataGetter(server)
         self.block_tester = BlockTester(server)
         self.server = server
+        self.hopper_matcher = HopperMatcher()
 
-    def on_info(self, server, info):
+    def on_info(self, server: Any, info: Any) -> None:
         self.api.on_info(server, info)
         self.block_tester.on_info(server, info)
 
-    def create(self, pos: Tuple[int, int, int], name, time_step=0.05):
+    def create(
+        self,
+        pos: Tuple[int, int, int],
+        name: str,
+        time_step: float = 0.05,
+    ) -> None:
+        """Create a main-storage pattern by coordinating the storage helpers."""
         self.server.execute("gamerule sendCommandFeedback false")
-        main_storage_data: MainStorageData = {"name": name}
-        player_x, player_y, player_z = pos
 
-        # query hoppers from y+16 to y-5, from x-16 to x+16, from y-16 to y+16
-        hoppers = []
-        match = lambda block_data: block_data["id"] == "minecraft:hopper" and len(block_data["Items"]) == 5 and block_data["Items"][0]["Count"] < 64
-        is_covered = lambda pos: (pos[0], pos[1]+1, pos[2]) in hoppers or pos in hoppers
-        axis = None # the axis of slice, not main axis
-        self.server.broadcast(rtr("command.add.start"))
-        for y in range(player_y+15, player_y-6, -1):
-            if axis is None or axis == "x":
-                z = player_z
-                multi_pos = [(x, y, z) for x in range(player_x-16, player_x+17)]
-                highlight_block_multi(self.server, multi_pos, wait=0.15)
-                new_hoppers = [block_data["pos"] for block_data in self.api.get_multi_block_data(multi_pos) if match(block_data["data"]) and not is_covered(block_data["pos"])]
-                highlight_block_multi(self.server, new_hoppers, new=False, tag="new_hoppers")
-                hoppers += new_hoppers
-                if 1 < len(new_hoppers) < 17:
-                    axis = "x"
-            if axis is None or axis == "z":
-                x = player_x
-                multi_pos = [(x, y, z) for z in range(player_z-16, player_z+17)]
-                highlight_block_multi(self.server, multi_pos, wait=0.15)
-                new_hoppers = [block_data["pos"] for block_data in self.api.get_multi_block_data(multi_pos) if match(block_data["data"]) and not is_covered(block_data["pos"])]
-                highlight_block_multi(self.server, new_hoppers, new=False, tag="new_hoppers")
-                hoppers += new_hoppers
-                if 1 < len(new_hoppers) < 17:
-                    axis = "z"
-            time.sleep(time_step)
-        if not axis:
-            raise MainStorageCreatingError("Cannot recognize axis of the specific slice.")
-        main_storage_data["axis"] = axis
+        scanner = MainStorageScanner(self.server, self.api, self.hopper_matcher)
+        hoppers, axis = scanner.scan_hoppers(pos, time_step)
 
-        # query start & end of the main axis
-        hoppers = [i for i in hoppers if (axis == "z" and i[0] == player_x) or (axis == "x" and i[2] == player_z)]
-        offset_axis = "x" if axis == "z" else "z"
-        start = end = None
-        start_pos = DynamicPos(hoppers[0])
-        for step in [-256,256]:
-            near, remote = 0, step
-            flag = False
-            while True:
-                step = (remote+near)//2
-                if abs(remote-near) <= 1:
-                    pos = start_pos.offset_axis(step, offset_axis)
-                    break
-                pos = start_pos.offset_axis(step, offset_axis)
-                highlight_block_timer(self.server, *pos, wait=0.2)
-                block_data = self.api.get_block_data(*pos)
-                if block_data is not None and match(block_data["data"]):
-                    if not flag:
-                        near, step = step, step*2
-                        continue
-                    near = step
-                else:
-                    remote = step
-                if not flag:
-                    flag = True
-            if start:
-                end = int(pos[2] if axis == "x" else pos[0])
-            else:
-                start = int(pos[2] if axis == "x" else pos[0])
-        hopper_slices = [[(pos[0], pos[1], z) for pos in hoppers] for z in range(start, end+1)] if axis == "x" \
-            else [[(x, pos[1], pos[2]) for pos in hoppers] for x in range(start, end+1)]
-        main_storage_data["range"] = (start, end)
-        main_storage_data["hoppers"] = hoppers
-        highlight_block_clear(self.server, "new_hoppers")
-        highlight_block_multi(self.server, hopper_slices[0]+hopper_slices[-1], tag="show_hopper", block="hopper")
-        self.server.broadcast(rtr("command.add.hoppers_found"))
+        range_finder = RangeFinder(self.server, self.api, self.hopper_matcher)
+        start, end = range_finder.find_range(hoppers, axis)
 
-        # query items
-        items = []
+        hopper_slices = self._create_hopper_slices(hoppers, start, end, axis)
+        items = self._extract_items(hopper_slices)
+
+        chest_finder = ChestFinder(self.server, self.api, self.block_tester)
+        chests = self._find_all_chests(hoppers, axis, chest_finder)
+
+        self._save_and_notify(
+            name=name,
+            axis=axis,
+            storage_range=(start, end),
+            hoppers=hoppers,
+            chests=chests,
+            items=items,
+            hopper_slices=hopper_slices,
+        )
+
+    def _create_hopper_slices(
+        self,
+        hoppers: List[Tuple[int, int, int]],
+        start: int,
+        end: int,
+        axis: str,
+    ) -> List[List[Tuple[int, int, int]]]:
+        """Generate one hopper-position slice for each main-axis coordinate."""
+        if axis == "x":
+            return [
+                [(pos[0], pos[1], coordinate) for pos in hoppers]
+                for coordinate in range(start, end + 1)
+            ]
+        return [
+            [(coordinate, pos[1], pos[2]) for pos in hoppers]
+            for coordinate in range(start, end + 1)
+        ]
+
+    def _extract_items(
+        self,
+        hopper_slices: List[List[Tuple[int, int, int]]],
+    ) -> List[List[Optional[str]]]:
+        """Extract the first unnamed item from every hopper slice."""
+        items: List[List[Optional[str]]] = []
         for hopper_slice in hopper_slices:
             highlight_block_multi(self.server, hopper_slice, tag="query_hopper", block="hopper")
             items.append(self.get_hopper_item(hopper_slice))
         highlight_block_clear(self.server, "query_hopper")
         highlight_block_clear(self.server, "show_hopper")
-        main_storage_data["items"] = items
-        self.server.broadcast(rtr("command.add.items_found"))
-        
-        # query chests
+        return items
+
+    def _find_all_chests(
+        self,
+        hoppers: List[Tuple[int, int, int]],
+        axis: str,
+        chest_finder: ChestFinder,
+    ) -> List[List[Tuple[int, int, int]]]:
+        """Find and complete the chest group associated with every hopper."""
         try:
             chests = []
             for pos in hoppers:
-                chests.append(self.complete_chest(single_chest, axis) if (single_chest := self.search_target_chest(DynamicPos(pos), axis), axis) is not None else [])
-            main_storage_data["chests"] = chests
-            chest_slices = self.create_chest_slices(chests, start, end+1, axis)
-        except Exception as e:
-            self.server.logger.warning(e, exc_info=1)
+                single_chest = chest_finder.find_target_chest(DynamicPos(pos), axis)
+                chests.append(
+                    chest_finder.complete_chest_group(single_chest, axis)
+                    if single_chest is not None
+                    else []
+                )
+            return chests
+        except Exception as error:
+            self.server.logger.warning(error, exc_info=1)
             highlight_block_clear(self.server, "target_chests")
-            return
+            return []
+
+    def _save_and_notify(
+        self,
+        name: str,
+        axis: str,
+        storage_range: Tuple[int, int],
+        hoppers: List[Tuple[int, int, int]],
+        chests: List[List[Tuple[int, int, int]]],
+        items: List[List[Optional[str]]],
+        hopper_slices: List[List[Tuple[int, int, int]]],
+    ) -> None:
+        """Highlight discovered blocks, save the pattern, and broadcast progress."""
+        highlight_block_clear(self.server, "new_hoppers")
+        highlight_block_multi(
+            self.server,
+            hopper_slices[0] + hopper_slices[-1],
+            tag="show_hopper",
+            block="hopper",
+        )
+        self.server.broadcast(rtr("command.add.hoppers_found"))
+        self.server.broadcast(rtr("command.add.items_found"))
+
+        chest_slices = self.create_chest_slices(
+            chests,
+            storage_range[0],
+            storage_range[1] + 1,
+            axis,
+        )
         highlight_block_clear(self.server, "target_chests")
-        highlight_block_multi(self.server, chest_slices[0]+chest_slices[-1], tag="show_chests",block="red_stained_glass")
-        highlight_block_multi_steps(self.server, chest_slices, block="red_stained_glass", end_func=(lambda server, tag: (highlight_block_clear(server, tag), self.server.execute("gamerule sendCommandFeedBack true")), (self.server, "show_chests")))
+        if chest_slices:
+            highlight_block_multi(
+                self.server,
+                chest_slices[0] + chest_slices[-1],
+                tag="show_chests",
+                block="red_stained_glass",
+            )
+            highlight_block_multi_steps(
+                self.server,
+                chest_slices,
+                block="red_stained_glass",
+                end_func=(
+                    lambda server, tag: (
+                        highlight_block_clear(server, tag),
+                        self.server.execute("gamerule sendCommandFeedback true"),
+                    ),
+                    (self.server, "show_chests"),
+                ),
+            )
         self.server.broadcast(rtr("command.add.chests_found"))
 
-        # save
+        main_storage_data: MainStorageData = {
+            "name": name,
+            "axis": axis,
+            "range": storage_range,
+            "hoppers": hoppers,
+            "chests": chests,
+            "items": items,
+        }
         self.save_ms_data(main_storage_data, name)
         self.server.broadcast(rtr("command.add.main_storage_pattern_created", name=name))
-    
 
-    def create_chest_slices(self, chests, start, end, axis, step=1):
-        return [[(pos[0], pos[1], z) for group_pos in chests for pos in group_pos] for z in range(start, end, step)] if axis == "x" \
-            else [[(x, pos[1], pos[2]) for group_pos in chests for pos in group_pos] for x in range(start, end, step)]
+    def create_chest_slices(
+        self,
+        chests: List[List[Tuple[int, int, int]]],
+        start: int,
+        end: int,
+        axis: str,
+        step: int = 1,
+    ) -> List[List[Tuple[int, int, int]]]:
+        """Create chest-position slices along the main storage axis."""
+        if axis == "x":
+            return [
+                [(pos[0], pos[1], coordinate) for group in chests for pos in group]
+                for coordinate in range(start, end, step)
+            ]
+        return [
+            [(coordinate, pos[1], pos[2]) for group in chests for pos in group]
+            for coordinate in range(start, end, step)
+        ]
 
+    def do_item_has_name(self, data: Dict[str, Any]) -> bool:
+        tag = data.get("tag")
+        display = tag.get("display") if isinstance(tag, dict) else None
+        return isinstance(display, dict) and "name" in display
 
-    def search_target_chest(self, pos: DynamicPos[int, int, int], axis: str, hopper: bool = True, source_facing = None) -> Tuple[int, int, int]:
-        highlight_block_timer(self.server, *pos, wait=0.5)
-        if hopper:
-            facings =  ["down", "west", "east"] if axis == "x" else ["down", "north","south"]
-            for facing in facings:
-                if self.block_tester.test_block(*pos, block=f"hopper[facing={facing}]"): 
-                    if source_facing == facing:
-                        self.server.logger.warning("Hopper[facing=%s] at %s has an opposite facing with its previous hopper."%(facing, str(pos)))
-                        return
-                    self.server.logger.info("search_target_chest2(%s, %s, %s, %s)"%(pos.offset_facing(1, facing), axis, False, opposite_facing(facing)))
-                    if (result := self.search_target_chest(pos.offset_facing(1, facing), axis, hopper=False, source_facing=opposite_facing(facing))) is not None: # move to the facing block
-                        return result
-                    break
+    def get_hopper_item(
+        self,
+        multi_pos: List[Tuple[int, int, int]],
+    ) -> List[Optional[str]]:
+        """Extract item IDs from hoppers, ignoring renamed items."""
+        result: List[Optional[str]] = []
+        for block_data in self.api.get_multi_block_data(multi_pos):
+            data = block_data["data"]
+            item_list = data.get("items", []) if data is not None else []
+            if not item_list:
+                result.append(None)
+                continue
+
+            first_item = item_list[0]
+            if self.do_item_has_name(first_item):
+                result.append(None)
             else:
-                self.server.logger.warning("Hopper at %s does not match any facing with slice axis = %s"%(str(pos), axis))
-                return
-            if facing != "down" and self.block_tester.test_block(*(new_pos := pos.offset_facing(1, "down")), block="hopper"): # if there is a hopper under this hopper, move to
-                return self.search_target_chest(new_pos, axis, source_facing="up")
+                result.append(first_item["id"].replace("minecraft:", ""))
+        return result
 
-        elif (block_id := self.api.get_block_data(*pos, path="id")) is not None:
-            block_id = block_id["data"]
-            if block_id == "minecraft:hopper":
-                return self.search_target_chest(pos, axis, source_facing=source_facing)
-            if block_id == "minecraft:dropper":
-                for facing in ["up", "west", "east", "down"] if axis == "x" else ["up", "north", "south", "down"]:
-                    if facing == source_facing:
-                        continue
-                    if self.block_tester.test_block(*pos, block=f"dropper[facing={facing}]"):
-                        return self.search_target_chest(pos.offset_facing(1, facing), axis, hopper=False, source_facing=opposite_facing(facing))
-            elif block_id == "minecraft:chest":
-                highlight_block(self.server, *pos, tag="target_chests", new=False)
-                return pos
-            else:
-                return self.search_target_chest(pos.offset_facing(1, "down"), axis, hopper=False, source_facing="up")
-    
-
-    def complete_chest(self, pos: Tuple[int, int, int], axis: str) -> List[Tuple[int, int, int]]:
-        pos = DynamicPos(pos)
-        for facing in ["north", "south"] if axis == "x" else ["west", "east"]:
-            if self.block_tester.test_block(*pos, block=f"chest[facing={facing}]"):
-                for type in ["left", "right", "single"]:
-                    if self.block_tester.test_block(*pos, block=f"chest[type={type}]"):
-                        pos_group = [pos, pos.offset_facing(1, opposite_facing(rotate_facing(facing, type)))] if type != "single" else [pos]
-                        return pos_group
-
-
-    def do_item_has_name(self, data):
-        return "tag" in data.keys() and "display" in (tag := data["tag"]).keys() and "Name" in tag["display"].keys()
-
-
-    def get_hopper_item(self, multi_pos: List[Tuple[int, int, int]]):
-        return [first_item["id"].replace("minecraft:","") if (data := block_data["data"]) is not None and not self.do_item_has_name(first_item := data["Items"][0]) else None for block_data in self.api.get_multi_block_data(multi_pos)]
-    
-
-    def save_ms_data(self, ms_data: MainStorageData, name: str):
+    def save_ms_data(self, ms_data: MainStorageData, name: str) -> None:
+        """Persist a main-storage pattern under its named data file."""
         self.server.save_config_simple(ms_data, f"msdata-{name}.json")
-    
 
-    def load_ms_data(self, name: str) -> MainStorageData:
+    def load_ms_data(self, name: str) -> Optional[MainStorageData]:
         try:
-            data : MainStorageData = self.server.load_config_simple(f"msdata-{name}.json")
-            data["items"] = [[rtr_minecraft(item) for item in items] for items in data["items"]]
+            data: MainStorageData = self.server.load_config_simple(f"msdata-{name}.json")
+            data["items"] = [
+                [rtr_minecraft(item) for item in items]
+                for items in data["items"]
+            ]
             return data
         except FileNotFoundError:
             return None
-        except Exception as e:
-            raise e
+        except Exception as error:
+            raise error

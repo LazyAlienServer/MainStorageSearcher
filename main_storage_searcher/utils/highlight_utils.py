@@ -1,6 +1,6 @@
 from mcdreforged.api.all import ServerInterface, new_thread
 import time
-from typing import List, Tuple, Callable, Any, Dict
+from typing import List, Tuple, Callable, Any, Dict, Optional
 
 
 def highlight_block_clear(server: ServerInterface, tag="mark"):
@@ -26,7 +26,7 @@ def highlight_block_multi(server: ServerInterface, multi_pos: List[Tuple[int, in
         server.execute(f"kill @e[tag=temp{id}]")
 
 @new_thread("highlight-block-multi")
-def highlight_block_multi_steps(server: ServerInterface, multi_group_pos: List[List[Tuple[int, int, int]]], block="gray_stained_glass", wait=0.05, end_func: Tuple[Callable, Tuple[Any], Dict[str, Any]]=None):
+def highlight_block_multi_steps(server: ServerInterface, multi_group_pos: List[List[Tuple[int, int, int]]], block="gray_stained_glass", wait=0.05, end_func: Tuple[Callable, Optional[Tuple[Any]], Optional[Dict[str, Any]]]=None):
     tag = f"step{time.time()}"
     for group_pos in multi_group_pos:
         highlight_block_multi(server, group_pos, block=block, tag=tag)
